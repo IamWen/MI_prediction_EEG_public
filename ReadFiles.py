@@ -6,8 +6,6 @@ from scipy import signal # For calculating PSDs and plotting spectrograms
 from neurodsp.spectral import compute_spectrum # for smoothed PSD computation
 from pathlib import Path # For making paths compatible on Windows and Macs
 
-import ReadFiles as RF
-
 
 eeg_fs = 250 # Data was recorded at 250 Hz
 
@@ -109,6 +107,73 @@ def plotSpectrogram_fromEEG(eeg_data, fs=eeg_fs, pre_cut_off_freq=0, post_cut_of
     plt.xlabel("Time (sec)")
 
 
+def plot_1_trial(eeg_epoch_full_df):
+    # Visualize EEG and PSD for one trial
+    # Try changing trial_num to view different trials!
+    trial_num = 0
+    eeg_chans = ["C3", "Cz", "C4"]  # 10-20 system
+    eog_chans = ["EOG:ch01", "EOG:ch02", "EOG:ch03"]
+
+    plt.figure(figsize=(15, 5))
+    for ch in eeg_chans:
+        plt.plot(eeg_epoch_full_df[ch][trial_num], label=ch)
+    plt.ylabel("Voltage (uV)")
+    plt.xlabel("timepoints @ 250Hz")
+    plt.title("EEG of one motor imagery trial")
+    plt.legend()
+    plt.show()
+
+    plt.figure(figsize=(15, 5))
+    for ch in eog_chans:
+        plt.plot(eeg_epoch_full_df[ch][trial_num], label=ch)
+    plt.ylabel("Voltage (uV)")
+    plt.xlabel("timepoints @ 250Hz")
+    plt.title("EOG of one motor imagery trial")
+    plt.legend()
+    plt.show()
+
+    plt.figure(figsize=(15, 5))
+    for ch in eeg_chans:
+        plotPSD_fromEEG(eeg_epoch_full_df[ch][trial_num], pre_cut_off_freq=2, post_cut_off_freq=30, label=ch)
+    plt.title("PSD of EEG in one motor imagery trial")
+    plt.legend()
+    plt.show()
+
+
+def get_PSD_avg(eeg_epoch_full_df):
+    # Get PSD averages for each channel for each event type (0=left or 1=right)
+    eeg_chans = ["C3", "Cz", "C4"]  # 10-20 system
+    eog_chans = ["EOG:ch01", "EOG:ch02", "EOG:ch03"]
+    event_types = {0: "left", 1: "right"}
+
+    psd_averages_by_type = {}
+    for event_type in event_types.keys():
+        psds_only_one_type={}
+        freqs_only_one_type={}
+        for i, row in eeg_epoch_full_df[eeg_epoch_full_df["event_type"] == event_type].iterrows():
+            for ch in eeg_chans:
+                if ch not in psds_only_one_type:
+                    psds_only_one_type[ch] = list()
+                    freqs_only_one_type[ch] = list()
+                f, p = getMeanFreqPSD(row[ch])
+                psds_only_one_type[ch].append(p)
+                freqs_only_one_type[ch].append(f)
+        avg_psds_one_type = {}
+        for ch in eeg_chans:
+            psds_only_one_type[ch] = np.array(psds_only_one_type[ch])
+            avg_psds_one_type[ch] = np.mean(psds_only_one_type[ch], axis=0)
+        psd_averages_by_type[event_type] = dict(avg_psds_one_type)
+
+    # View Average PSDs
+    for event_type in event_types.keys():
+        for ch in eeg_chans[:]:
+            plotPSD(freqs_only_one_type[eeg_chans[0]][0], psd_averages_by_type[event_type][ch], pre_cut_off_freq=2,
+                    post_cut_off_freq=30, label=ch)
+
+        plt.legend()
+        plt.title("event type: " + event_types[event_type])
+        plt.show()
+
 
 def read_raw_data(dir):
     import os
@@ -148,16 +213,22 @@ def read_epoched_data(dir):
     # These are the epochs that will be used in accuracy evaluation
     fname_tr = '/epoched_train.pkl'
     fname_ts = 'epoched_test.pkl'
+    fname_w1 = '/W1_feature_df.pkl'
+    fname_w2 = '/W2_feature_df.pkl'
     epoch_df_filename = Path(dir+fname_tr)
     eeg_epoch_full_df = pd.read_pickle(epoch_df_filename)
-    eeg_epoch_full_df.head(2)
+    W1 = pd.read_pickle(Path(dir+fname_w1))
+    W2 = pd.read_pickle(Path(dir+fname_w2))
+    print(list(W1.columns))
+    return W1,W2
+
 
 
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
 
-    # read_epoched_data(dir)
-    X_list, y_list, n, labels = read_raw_data(dir)
-    print(n)
-    print(labels)
+    W1,W2 = read_epoched_data(dir)
+    y = W1[['y']]
+    X = W1[W1.columns[~W1.columns.isin(['y'])]]
+
     print('done')

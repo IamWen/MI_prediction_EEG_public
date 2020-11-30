@@ -7,6 +7,9 @@ from sklearn.model_selection import train_test_split, LeavePGroupsOut, LeaveOneG
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 
+import ReadFiles as RF
+
+
 def normalize_data(feature_train, feature_test):
     scaler = StandardScaler().fit(feature_train)
     StandardScaler()
@@ -30,6 +33,8 @@ def cross_validation(X, y, IDs):
 def split_randomly(X, y):
     X_tot, X_test, y_tot, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
     X_train, X_val, y_train, y_val = train_test_split(X_tot, y_tot, test_size=0.2, random_state=0)
+    print(X_train.shape)
+    print(y_train.shape)
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 
@@ -54,7 +59,7 @@ def split_by_ID(X, y, IDs):
 
 def SVM_classifier(X_train, X_test, y_train, y_test, best_C=1, best_gamma=0.001, best_ker='rbf'):
     svm_model = SVC(C=best_C, gamma=best_gamma, kernel=best_ker)
-    svm_model.fit(X_train, y_train.ravel())
+    svm_model.fit(X_train, y_train)
     y_pred = svm_model.predict(X_test)
 
     test_acc1 = metrics.accuracy_score(y_test, y_pred)
@@ -82,7 +87,7 @@ def random_forest(X_train, X_test, y_train, y_test):
     # scores = cross_val_score(clf, X_train, y_train, cv=5)
     y_pred = clf.predict(X_test)
     test_acc1 = metrics.accuracy_score(y_test, y_pred)
-    print("SVM accuracy: "+ str(test_acc1))
+    print("Random forest accuracy: "+ str(test_acc1))
 
     target_names = ['class 1','class 2']
     report = metrics.classification_report(y_test, y_pred, target_names=target_names)
@@ -106,6 +111,17 @@ def random_forest(X_train, X_test, y_train, y_test):
     plt.show()
 
 
+def classify_data(X,y):
+
+    X_train, X_val, X_test, y_train, y_val, y_test = split_randomly(X,y)
+    SVM_classifier(X_train, X_test, y_train, y_test)
+    random_forest(X_train, X_test, y_train, y_test)
+
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
-    X_list, y_list, n, labels = RF.read_raw_data(dir)
+    W1, W2 = RF.read_epoched_data(dir)
+    y = W1[['y']]
+    X = W1[W1.columns[~W1.columns.isin(['y'])]]
+    # y = W2[['y']]
+    # X = W2[W2.columns[~W2.columns.isin(['y'])]]
+    classify_data(X,y)
