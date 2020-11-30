@@ -220,7 +220,7 @@ def read_epoched_data(dir):
     W1 = pd.read_pickle(Path(dir+fname_w1))
     W2 = pd.read_pickle(Path(dir+fname_w2))
     print(list(W1.columns))
-    return W1,W2
+    return eeg_epoch_full_df, W1,W2
 
 
 

@@ -8,7 +8,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 
 import ReadFiles as RF
-
+import ExtractFeatures as EF
 
 def normalize_data(feature_train, feature_test):
     scaler = StandardScaler().fit(feature_train)
@@ -112,16 +112,16 @@ def random_forest(X_train, X_test, y_train, y_test):
 
 
 def classify_data(X,y):
-
     X_train, X_val, X_test, y_train, y_val, y_test = split_randomly(X,y)
     SVM_classifier(X_train, X_test, y_train, y_test)
     random_forest(X_train, X_test, y_train, y_test)
 
+
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
-    W1, W2 = RF.read_epoched_data(dir)
-    y = W1[['y']]
-    X = W1[W1.columns[~W1.columns.isin(['y'])]]
-    # y = W2[['y']]
-    # X = W2[W2.columns[~W2.columns.isin(['y'])]]
+    eeg_epoch_full_df, W1, W2 = RF.read_epoched_data(dir)
+    feature_array = EF.neuroDSP_alpha_instantaneous_amplitude_median(W1, eeg_epoch_full_df)
+    y = feature_array[['y']]
+    X = feature_array[feature_array.columns[~feature_array.columns.isin(['y'])]]
+
     classify_data(X,y)
