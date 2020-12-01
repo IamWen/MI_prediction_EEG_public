@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from sklearn import metrics
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, GridSearchCV, LeavePGroupsOut, LeaveOneGroupOut, GroupShuffleSplit,cross_val_score
+from sklearn.model_selection import train_test_split, GridSearchCV, LeavePGroupsOut, LeaveOneGroupOut, GroupShuffleSplit, cross_val_score
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
@@ -32,51 +32,14 @@ def preprocessing(feature_df):
     return cleaned_feature_df
 
 
-def normalize_data(feature_train, feature_test):
-    scaler = StandardScaler().fit(feature_train)
+def normalize_data(X_train, X_test):
+    scaler = StandardScaler().fit(X_train)
     StandardScaler()
     mu = scaler.mean_
     std = scaler.scale_
-    feature_train2 = scaler.transform(feature_train)
-    feature_test2 = scaler.transform(feature_test)
-    return feature_train2, feature_test2, mu, std
-
-
-def split_randomly(X, y):
-    X_tot, X_test, y_tot, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-    X_train, X_val, y_train, y_val = train_test_split(X_tot, y_tot, test_size=0.2, random_state=0)
-    print(X_train.shape)
-    print(y_train.shape)
-    return X_train, X_val, X_test, y_train, y_val, y_test
-
-
-def split_by_ID(X, y, IDs):
-    gss = GroupShuffleSplit(n_splits=5, train_size=.8, random_state=0)
-
-    for train_index, test_index in gss.split(X, y, groups=IDs.ravel()):
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-        X_train, X_test, _, _ = normalize_data(X_train, X_test)
-        print('Training set shape: '+str(X_train.shape))
-        print('Test set shape: '+str(X_test.shape))
-        ID_tr, u_tr_ind = np.unique(IDs[train_index], return_index=True)
-        ID_ts, u_ts_ind = np.unique(IDs[test_index], return_index=True)
-        print('Training IDs: ' + str(ID_tr))
-        print('Testing IDs: ' + str(ID_ts))
-
-        # cross_validation(X_train,y_train,IDs[train_index])
-        SVM_classifier(X_train, X_test, y_train, y_test)
-    return
-
-
-def cross_validation(X, y, IDs):
-    logo = LeaveOneGroupOut()
-
-    for train_index, val_index in logo.split(X, y, groups=IDs.ravel()):
-        X_train, X_val = X[train_index], X[val_index]
-        y_train, y_val = y[train_index], y[val_index]
-        SVM_classifier(X_train, X_val, y_train, y_val)
-    return
+    X_train2 = scaler.transform(X_train)
+    X_test2 = scaler.transform(X_test)
+    return X_train2, X_test2
 
 
 def Logistic_regression(X_train, X_test, y_train, y_test):
@@ -89,7 +52,10 @@ def Logistic_regression(X_train, X_test, y_train, y_test):
     return
 
 
-def SVM_classifier(X_train, X_test, y_train, y_test, best_C=1, best_gamma=0.001, best_ker='rbf'):
+def SVM_classifier(X_train, X_test, y_train, y_test, best_params):
+    best_C = best_params['C']
+    best_gamma = best_params['gamma']
+    best_ker = best_params['kernel']
     svm_model = SVC(C=best_C, gamma=best_gamma, kernel=best_ker)
     svm_model.fit(X_train, y_train)
     y_pred = svm_model.predict(X_test)
@@ -143,8 +109,10 @@ def random_forest(X_train, X_test, y_train, y_test):
     plt.show()
 
 
-def AdaBoost(X_train, X_test, y_train, y_test):
-    adaboost_model = AdaBoostClassifier()
+def AdaBoost(X_train, X_test, y_train, y_test, best_params):
+    best_n_estimators = best_params['n_estimators']
+    best_learning_rate = best_params['learning_rate']
+    adaboost_model = AdaBoostClassifier(n_estimators=best_n_estimators, learning_rate=best_learning_rate)
     adaboost_model.fit(X_train, y_train)
     train_preds = adaboost_model.predict(X_train)
     test_preds = adaboost_model.predict(X_test)
@@ -153,9 +121,36 @@ def AdaBoost(X_train, X_test, y_train, y_test):
     return
 
 
-def classify_data(X,y):
 
-    SVM_classifier(X_train, X_test, y_train, y_test)
+def cross_validation_grid_search(X, y, model, params):
+    clf = GridSearchCV(model, param_grid=params, scoring='accuracy', n_jobs=-1, return_train_score=True)
+    clf.fit(X, y)
+    best_model = clf.best_estimator_
+    best_params = clf.best_params_
+    print("Best parameters: \n"+str(best_params))
+
+    means = clf.cv_results_['mean_test_score']
+    stds = clf.cv_results_['std_test_score']
+    print("Grid scores on development set:")
+    for mean, std, param in zip(means, stds, clf.cv_results_['params']):
+        print("%0.3f (+/-%0.03f) for %r"
+              % (mean, std * 2, param))
+    results = clf.cv_results_
+    return best_params
+
+
+def classify_data(X_train, X_test, y_train, y_test):
+
+    model = AdaBoostClassifier()
+    params_AdaBoost = {"n_estimators":range(30, 101, 10), "learning_rate":[1, 0.1, 0.01]}
+    best_params = cross_validation_grid_search(X_train,y_train, model, params_AdaBoost)
+    AdaBoost(X_train, X_test, y_train, y_test, best_params)
+
+    model = SVC()
+    params_SVM = {'C': [1, 10, 100, 1000], 'gamma': [0.1, 0.01, 0.001, 0.0001], 'kernel': ['linear','rbf']}
+    best_params = cross_validation_grid_search(X_train,y_train, model, params_SVM)
+    SVM_classifier(X_train, X_test, y_train, y_test, best_params)
+
     random_forest(X_train, X_test, y_train, y_test)
 
 
@@ -166,5 +161,6 @@ if __name__ == "__main__":
     cleaned_feature_df = preprocessing(feature_df)
     y = feature_df["y"]
     X = feature_df.drop("y",axis=1)
-    X_train, X_val, X_test, y_train, y_val, y_test = split_randomly(X,y)
-    classify_data(X,y)
+    X_train0, X_test0, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    X_train, X_test = normalize_data(X_train0, X_test0)
+    classify_data(X_train, X_test, y_train, y_test)
