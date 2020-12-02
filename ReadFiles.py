@@ -53,7 +53,7 @@ def getEpochedDF(eeg_df, event_df, trial_duration_ms=4000):
     return eeg_epoch_df
 
 
-def read_raw_data(dir):
+def read_raw_data_all(dir):
     import os
     X_list, y_list = [],[]
     n, labels = 0, 0
@@ -86,6 +86,25 @@ def read_raw_data(dir):
     return X_list, y_list, n, labels
 
 
+def read_raw_data_one(dir):
+    # Load a subject's data
+    filename = "B0101T"
+    eeg_filename = Path(dir + '/train/' + filename + ".csv")
+    event_filename = Path(dir+'/y_train_only/' + filename + ".csv")
+
+    eeg_chans = ["C3", "Cz", "C4"]  # 10-20 system
+    eog_chans = ["EOG:ch01", "EOG:ch02", "EOG:ch03"]
+    all_chans = eeg_chans + eog_chans
+    event_types = {0: "left", 1: "right"}
+
+    # Load the raw csvs into dataframes
+    eeg_df = pd.read_csv(eeg_filename)
+    event_df = pd.read_csv(event_filename)
+
+    print("recording length:", eeg_df["time"].values[-1] / 1000 / 60, "min")
+    return eeg_df, event_df
+
+
 def read_epoched_data(dir):
     # We've already epoched all the data into 4000ms trials for you in epoched_train.pkl and epoched_test.pkl :)
     # These are the epochs that will be used in accuracy evaluation
@@ -101,11 +120,9 @@ def read_epoched_data(dir):
     return eeg_epoch_full_df, W1,W2
 
 
-
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
-
-    W1,W2 = read_epoched_data(dir)
+    eeg_epoch_full_df, W1,W2 = read_epoched_data(dir)
     y = W1[['y']]
     X = W1[W1.columns[~W1.columns.isin(['y'])]]
 

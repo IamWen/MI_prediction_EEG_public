@@ -9,6 +9,8 @@ import pickle # For loading and creating pickle files
 from neurodsp.spectral import compute_spectrum # For smoothed PSD computation
 from neurodsp.timefrequency import amp_by_time, freq_by_time, phase_by_time # For neurodsp features
 
+import ReadFiles as RF
+
 
 eeg_fs = 250 # Data was recorded at 250 Hz
 eeg_chans = ["C3", "Cz", "C4"] # 10-20 system
@@ -142,7 +144,7 @@ def plot_1_trial(eeg_epoch_full_df):
     plt.show()
 
 
-def get_PSD_avg(eeg_epoch_full_df):
+def plot_PSD_avg(eeg_epoch_full_df):
     # Get PSD averages for each channel for each event type (0=left or 1=right)
     eeg_chans = ["C3", "Cz", "C4"]  # 10-20 system
     eog_chans = ["EOG:ch01", "EOG:ch02", "EOG:ch03"]
@@ -263,10 +265,12 @@ def getPowerBin(eeg_epoch_full_df):
 
     std_err_df = pd.DataFrame(chan_frequency_sems)
     avg_df = pd.DataFrame(chan_frequency_avgs)
+    return std_err_df,avg_df
 
 
-def plot_avg_PowerRatios():
+def plot_avg_PowerRatios(eeg_epoch_full_df):
     # Plot average power ratios for each electrode
+    std_err_df, avg_df = getPowerBin(eeg_epoch_full_df)
     for chan in eeg_chans:
         chan_of_interest = chan
         event_power_ratios = {}
@@ -505,3 +509,14 @@ def FOOOF(eeg_epoch_full_df, W1_feature_df):
 
     # Save it so you don't need to spend extra time rerunning the heavy computation cell from above.
     feature_df.to_pickle("W2_feature_df.pkl")
+
+
+if __name__ == "__main__":
+    dir = 'E:/USC/EE660_2020/data'
+
+    eeg_df, event_df = RF.read_raw_data_one(dir)
+    plot_continuous_data_by_timepoint(eeg_df)
+
+    eeg_epoch_full_df, W1, W2 = RF.read_epoched_data(dir)
+    plot_1_trial(eeg_epoch_full_df)
+    plot_PSD_avg(eeg_epoch_full_df)

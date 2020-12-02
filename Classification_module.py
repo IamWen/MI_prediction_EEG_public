@@ -52,7 +52,7 @@ def Logistic_regression(X_train, X_test, y_train, y_test):
     return
 
 
-def SVM_classifier(X_train, X_test, y_train, y_test, best_params):
+def SVM_classifier(X_train, X_test, y_train, y_test, best_params={'C': 1000, 'gamma': 0.001, 'kernel': 'rbf'}):
     best_C = best_params['C']
     best_gamma = best_params['gamma']
     best_ker = best_params['kernel']
@@ -109,7 +109,7 @@ def random_forest(X_train, X_test, y_train, y_test):
     plt.show()
 
 
-def AdaBoost(X_train, X_test, y_train, y_test, best_params):
+def AdaBoost(X_train, X_test, y_train, y_test, best_params={'learning_rate': 1, 'n_estimators': 90}):
     best_n_estimators = best_params['n_estimators']
     best_learning_rate = best_params['learning_rate']
     adaboost_model = AdaBoostClassifier(n_estimators=best_n_estimators, learning_rate=best_learning_rate)
