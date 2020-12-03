@@ -211,7 +211,11 @@ def classify_data(X_train, X_test, y_train, y_test):
     # best_params = cross_validation_grid_search(X_train, y_train, model, params_xgBoost)
     # xgBoost(X_train, X_test, y_train, y_test, best_params)
 
-    lightGBM(X_train, X_test, y_train, y_test)
+    model = lgb.LGBMClassifier()
+    params_lightGBM = {"num_leaves":[26,31,36,41], "learning_rate":[0.05,0.1],"boosting_type":['gbdt','dart','goss']}
+    best_params = cross_validation_grid_search(X_train, y_train, model, params_lightGBM)
+    # lightGBM(X_train, X_test, y_train, y_test)
+
 
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
