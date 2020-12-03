@@ -6,14 +6,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn import metrics
+from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, LeavePGroupsOut, LeaveOneGroupOut, GroupShuffleSplit, cross_val_score
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score
 
+from xgboost import XGBClassifier
+import lightgbm as lgb
 import tensorflow.keras as keras
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dense, Conv2D, Dropout, MaxPooling2D, Flatten
@@ -43,12 +45,17 @@ def normalize_data(X_train, X_test):
 
 
 def Logistic_regression(X_train, X_test, y_train, y_test):
-    log_model = LogisticRegression()
-    log_model.fit(X_train, y_train)
-    train_preds = log_model.predict(X_train)
-    test_preds = log_model.predict(X_test)
-    print("Training Accuracy: %f" % accuracy_score(train_preds, y_train))
-    print("Testing Accuracy: %f" % accuracy_score(test_preds, y_test))
+    clf = LogisticRegression()
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+
+    test_acc1 = metrics.accuracy_score(y_test, y_pred)
+    print("xgBoost accuracy: "+ str(test_acc1))
+    target_names = ['class 1','class 2']
+    report = metrics.classification_report(y_test, y_pred, target_names=target_names)
+    print(report)
+    conf_matrix = metrics.confusion_matrix(y_test, y_pred)
+    print('Confusion matrix: \n'+str(conf_matrix))
     return
 
 
@@ -56,13 +63,13 @@ def SVM_classifier(X_train, X_test, y_train, y_test, best_params={'C': 1000, 'ga
     best_C = best_params['C']
     best_gamma = best_params['gamma']
     best_ker = best_params['kernel']
-    svm_model = SVC(C=best_C, gamma=best_gamma, kernel=best_ker)
-    svm_model.fit(X_train, y_train)
-    y_pred = svm_model.predict(X_test)
+
+    clf = SVC(C=best_C, gamma=best_gamma, kernel=best_ker)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
 
     test_acc1 = metrics.accuracy_score(y_test, y_pred)
     print("SVM accuracy: "+ str(test_acc1))
-
     target_names = ['class 1','class 2']
     report = metrics.classification_report(y_test, y_pred, target_names=target_names)
     print(report)
@@ -84,9 +91,9 @@ def random_forest(X_train, X_test, y_train, y_test):
     clf.fit(X_train, y_train)
     # scores = cross_val_score(clf, X_train, y_train, cv=5)
     y_pred = clf.predict(X_test)
+
     test_acc1 = metrics.accuracy_score(y_test, y_pred)
     print("Random forest accuracy: "+ str(test_acc1))
-
     target_names = ['class 1','class 2']
     report = metrics.classification_report(y_test, y_pred, target_names=target_names)
     print(report)
@@ -112,14 +119,55 @@ def random_forest(X_train, X_test, y_train, y_test):
 def AdaBoost(X_train, X_test, y_train, y_test, best_params={'learning_rate': 1, 'n_estimators': 90}):
     best_n_estimators = best_params['n_estimators']
     best_learning_rate = best_params['learning_rate']
-    adaboost_model = AdaBoostClassifier(n_estimators=best_n_estimators, learning_rate=best_learning_rate)
-    adaboost_model.fit(X_train, y_train)
-    train_preds = adaboost_model.predict(X_train)
-    test_preds = adaboost_model.predict(X_test)
-    print("Training Accuracy: %f" % accuracy_score(train_preds, y_train))
-    print("Testing Accuracy: %f" % accuracy_score(test_preds, y_test))
+
+    clf = AdaBoostClassifier(n_estimators=best_n_estimators, learning_rate=best_learning_rate)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+
+    test_acc1 = metrics.accuracy_score(y_test, y_pred)
+    print("xgBoost accuracy: "+ str(test_acc1))
+    target_names = ['class 1','class 2']
+    report = metrics.classification_report(y_test, y_pred, target_names=target_names)
+    print(report)
+    conf_matrix = metrics.confusion_matrix(y_test, y_pred)
+    print('Confusion matrix: \n'+str(conf_matrix))
     return
 
+
+def xgBoost(X_train, X_test, y_train, y_test, best_params={'colsample_bytree': 0.5, 'eta': 0.05, 'gamma': 0.1, 'max_depth': 6, 'min_child_weight': 1}):
+    best_eta = best_params['eta']
+    best_max_depth = best_params['max_depth']
+    best_min_child_weight = best_params['min_child_weight']
+    best_gamma = best_params['gamma']
+    best_col = best_params['colsample_bytree']
+
+    clf = XGBClassifier(eta=best_eta, max_depth=best_max_depth,min_child_weight=best_min_child_weight,gamma=best_gamma,colsample_bytree=best_col)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+
+    test_acc1 = metrics.accuracy_score(y_test, y_pred)
+    print("xgBoost accuracy: "+ str(test_acc1))
+    target_names = ['class 1','class 2']
+    report = metrics.classification_report(y_test, y_pred, target_names=target_names)
+    print(report)
+    conf_matrix = metrics.confusion_matrix(y_test, y_pred)
+    print('Confusion matrix: \n'+str(conf_matrix))
+    return
+
+
+def lightGBM(X_train, X_test, y_train, y_test):
+    clf = lgb.LGBMClassifier()
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+
+    test_acc1 = metrics.accuracy_score(y_test, y_pred)
+    print("xgBoost accuracy: "+ str(test_acc1))
+    target_names = ['class 1','class 2']
+    report = metrics.classification_report(y_test, y_pred, target_names=target_names)
+    print(report)
+    conf_matrix = metrics.confusion_matrix(y_test, y_pred)
+    print('Confusion matrix: \n'+str(conf_matrix))
+    return
 
 
 def cross_validation_grid_search(X, y, model, params):
@@ -140,19 +188,30 @@ def cross_validation_grid_search(X, y, model, params):
 
 
 def classify_data(X_train, X_test, y_train, y_test):
+    # random_forest(X_train, X_test, y_train, y_test)
 
-    model = AdaBoostClassifier()
-    params_AdaBoost = {"n_estimators":range(30, 101, 10), "learning_rate":[1, 0.1, 0.01]}
-    best_params = cross_validation_grid_search(X_train,y_train, model, params_AdaBoost)
-    AdaBoost(X_train, X_test, y_train, y_test, best_params)
+    # model = AdaBoostClassifier()
+    # params_AdaBoost = {"n_estimators":range(30, 101, 10), "learning_rate":[1, 0.1, 0.01]}
+    # best_params = cross_validation_grid_search(X_train,y_train, model, params_AdaBoost)
+    # AdaBoost(X_train, X_test, y_train, y_test, best_params)
 
-    model = SVC()
-    params_SVM = {'C': [1, 10, 100, 1000], 'gamma': [0.1, 0.01, 0.001, 0.0001], 'kernel': ['linear','rbf']}
-    best_params = cross_validation_grid_search(X_train,y_train, model, params_SVM)
-    SVM_classifier(X_train, X_test, y_train, y_test, best_params)
+    # model = SVC()
+    # params_SVM = {'C': [1, 10, 100, 1000], 'gamma': [0.1, 0.01, 0.001, 0.0001], 'kernel': ['linear','rbf']}
+    # best_params = cross_validation_grid_search(X_train,y_train, model, params_SVM)
+    # SVM_classifier(X_train, X_test, y_train, y_test, best_params)
 
-    random_forest(X_train, X_test, y_train, y_test)
+    # model = XGBClassifier()
+    # params_xgBoost = {
+    #     "eta": [0.05, 0.10, 0.15, 0.20, 0.25, 0.30],
+    #     "max_depth": [3, 4, 5, 6, 8, 10, 12, 15],
+    #     "min_child_weight": [1, 3, 5, 7],
+    #     "gamma": [0.0, 0.1, 0.2, 0.3, 0.4],
+    #     "colsample_bytree": [0.3, 0.4, 0.5, 0.7]
+    # }
+    # best_params = cross_validation_grid_search(X_train, y_train, model, params_xgBoost)
+    # xgBoost(X_train, X_test, y_train, y_test, best_params)
 
+    lightGBM(X_train, X_test, y_train, y_test)
 
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
