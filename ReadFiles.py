@@ -9,6 +9,11 @@ from pathlib import Path # For making paths compatible on Windows and Macs
 
 eeg_fs = 250 # Data was recorded at 250 Hz
 
+eeg_chans = ["C3", "Cz", "C4"]  # 10-20 system
+eog_chans = ["EOG:ch01", "EOG:ch02", "EOG:ch03"]
+all_chans = eeg_chans + eog_chans
+event_types = {0: "left", 1: "right"}
+
 
 ## Create DF for each of these, columns are channels, each row is a trial run
 def getDF(epochs, labels, times, chans):
@@ -67,16 +72,11 @@ def read_raw_data_all(dir):
             eeg_filename = Path(x_fname)
             event_filename = Path(dir+'/y_train_only/'+one_file)
 
-            eeg_chans = ["C3", "Cz", "C4"]  # 10-20 system
-            eog_chans = ["EOG:ch01", "EOG:ch02", "EOG:ch03"]
-            all_chans = eeg_chans + eog_chans
-            event_types = {0: "left", 1: "right"}
-
             # Load the raw csvs into dataframes
             eeg_df = pd.read_csv(eeg_filename)
             event_df = pd.read_csv(event_filename)
             # print("recording length:", eeg_df["time"].values[-1] / 1000 / 60, "min")
-
+            # eeg_epoch_df = getEpochedDF(eeg_df,event_df)
             X_list.append(eeg_df)
             y_list.append(event_df)
             print('length:' + str(event_df.size))
@@ -125,5 +125,7 @@ if __name__ == "__main__":
     eeg_epoch_full_df, W1,W2 = read_epoched_data(dir)
     y = W1[['y']]
     X = W1[W1.columns[~W1.columns.isin(['y'])]]
+    print(eeg_epoch_full_df.columns)
 
+    read_raw_data_all(dir)
     print('done')
