@@ -186,10 +186,11 @@ def cross_validation_grid_search(X, y, model, params):
 def classify_data(X_train, X_test, y_train, y_test):
     ind = random_forest(X_train, X_test, y_train, y_test)
     print(X_train.shape)
-    X_train = X_train[:,ind[:80]]
-    X_test = X_test[:,ind[:80]]
+    X_train = X_train[:,ind[:200]]
+    X_test = X_test[:,ind[:200]]
     print(X_train.shape)
     random_forest(X_train, X_test, y_train, y_test)
+    # xgBoost(X_train, X_test, y_train, y_test)
 
     # model = AdaBoostClassifier()
     # params_AdaBoost = {"n_estimators":range(30, 101, 10), "learning_rate":[1, 0.1, 0.01]}
@@ -221,8 +222,12 @@ def classify_data(X_train, X_test, y_train, y_test):
 
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
-    eeg_epoch_full_df, W1, W2 = RF.read_epoched_data(dir)
-    feature_df = EF.get_all_features(eeg_epoch_full_df)
+    # eeg_epoch_full_df, _, _ = RF.read_epoched_data(dir)
+    # feature_df = EF.get_all_features(eeg_epoch_full_df)
+    # feature_df.to_pickle(dir+"/Wen_feature_df.pkl")
+    feature_df = RF.read_my_features(dir)
+    print(list(feature_df.columns))
+
     cleaned_feature_df = preprocessing(feature_df)
     y = feature_df["y"]
     X = feature_df.drop("y",axis=1)

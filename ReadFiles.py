@@ -116,8 +116,14 @@ def read_epoched_data(dir):
     eeg_epoch_full_df = pd.read_pickle(epoch_df_filename)
     W1 = pd.read_pickle(Path(dir+fname_w1))
     W2 = pd.read_pickle(Path(dir+fname_w2))
-    print(list(W1.columns))
     return eeg_epoch_full_df, W1,W2
+
+
+def read_my_features(dir):
+    fname = '/Wen_feature_df.pkl'
+    feature_fname = Path(dir + fname)
+    feature_df = pd.read_pickle(feature_fname)
+    return feature_df
 
 
 if __name__ == "__main__":

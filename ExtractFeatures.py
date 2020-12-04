@@ -235,7 +235,7 @@ def getPowerBin(eeg_epoch_full_df):
     intervals = getIntervals(binning)
     for i in range(0, len(eeg_epoch_full_df)):
         event_type = eeg_epoch_full_df['event_type'][i]
-        for ch in eeg_chans:
+        for ch in all_chans:
             ratios = getPowerRatio(eeg_epoch_full_df[ch][i][:], binning)
             for j, interval in enumerate(intervals):
                 key = ch + "_" + str(interval)
@@ -301,7 +301,7 @@ def getPowerBandRatios(power_ratios_df):
     theta_beta_ratios = {}  # Keys will be chan_theta_beta
     # Iterate through rows of power_ratios_df
     for i, row in power_ratios_df.iterrows():
-        for ch in eeg_chans:
+        for ch in all_chans:
             curr_key = ch + "_theta_beta"
             if curr_key not in theta_beta_ratios:
                 theta_beta_ratios[curr_key] = []
@@ -373,7 +373,7 @@ def get_alpha_instantaneous_statistics(eeg_epoch_full_df):
         alpha_range = power_range[power_i]
         for i in range(0, len(eeg_epoch_full_df)):
 
-            for ch in eeg_chans:
+            for ch in all_chans:
                 sig = eeg_epoch_full_df[ch][i][:]
                 key = ch + "_" + str(alpha_range)
 
@@ -424,13 +424,12 @@ def get_alpha_instantaneous_statistics(eeg_epoch_full_df):
     return insta_stat_df
 
 
-def FOOOF(eeg_epoch_full_df, W1_feature_df):
+def FOOOF(eeg_epoch_full_df):
     # Import required code for visualizing example models
     from fooof import FOOOF
     from fooof.sim.gen import gen_power_spectrum
     from fooof.sim.utils import set_random_seed
     from fooof.plts.annotate import plot_annotated_model
-
 
     # Set random seed, for consistency generating simulated data
     set_random_seed(10)
@@ -466,7 +465,7 @@ def FOOOF(eeg_epoch_full_df, W1_feature_df):
         psds_only_one_type = {}
         freqs_only_one_type = {}
         for i, row in eeg_epoch_full_df[eeg_epoch_full_df["event_type"] == event_type].iterrows():
-            for ch in eeg_chans:
+            for ch in all_chans:
                 if ch not in psds_only_one_type:
                     psds_only_one_type[ch] = list()
                     freqs_only_one_type[ch] = list()
@@ -545,14 +544,11 @@ def FOOOF(eeg_epoch_full_df, W1_feature_df):
             fooof_parameters[PW_key].append(means[1])
             fooof_parameters[BW_key].append(means[2])
 
-    # Concatenate
-    fooof_parameters_df = pd.DataFrame(fooof_parameters)
 
-    feature_df = pd.concat([W1_feature_df, fooof_parameters_df], axis=1)
+    fooof_parameters_df = pd.DataFrame(fooof_parameters)
     print("% with alpha:", num_with_alpha / (num_with_alpha + num_without_alpha))
 
-    # Save it so you don't need to spend extra time rerunning the heavy computation cell from above.
-    feature_df.to_pickle("W2_feature_df.pkl")
+    return fooof_parameters_df
 
 
 def get_all_features(eeg_epoch_full_df):
@@ -560,8 +556,10 @@ def get_all_features(eeg_epoch_full_df):
     band_ratios_df = getPowerBandRatios(power_ratios_df)
     diff_df = get_channel_relationships(power_ratios_df)
     insta_stat_df = get_alpha_instantaneous_statistics(eeg_epoch_full_df)
+    fooof_parameters_df = FOOOF(eeg_epoch_full_df)
     # Concatenate power_ratios_df with band_ratios_df to get full feature df
-    feature_df = pd.concat([power_ratios_df, band_ratios_df, diff_df, insta_stat_df], axis=1)
+    feature_df = pd.concat([power_ratios_df, band_ratios_df, diff_df, insta_stat_df,fooof_parameters_df], axis=1)
+
     return feature_df
 
 if __name__ == "__main__":
