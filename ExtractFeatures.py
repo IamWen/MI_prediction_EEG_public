@@ -245,7 +245,6 @@ def getPowerBin(eeg_epoch_full_df):
         power_ratios['y'].append(eeg_epoch_full_df['event_type'][i])
 
     power_ratios_df = pd.DataFrame(power_ratios)
-    power_ratios_df.head(2)
 
     # Calculate the standard error means between epochs for each channel from the power ratios obtained previously
     chan_frequency_sems = {}
@@ -265,12 +264,13 @@ def getPowerBin(eeg_epoch_full_df):
 
     std_err_df = pd.DataFrame(chan_frequency_sems)
     avg_df = pd.DataFrame(chan_frequency_avgs)
-    return std_err_df,avg_df
+    return power_ratios_df,std_err_df,avg_df
 
 
-def plot_avg_PowerRatios(eeg_epoch_full_df):
+def plot_avg_PowerRatios(std_err_df, avg_df):
     # Plot average power ratios for each electrode
-    std_err_df, avg_df = getPowerBin(eeg_epoch_full_df)
+    binning = [0.5, 4, 7, 12, 30]
+    intervals = getIntervals(binning)
     for chan in eeg_chans:
         chan_of_interest = chan
         event_power_ratios = {}
@@ -315,69 +315,113 @@ def getPowerBandRatios(power_ratios_df):
 
     # Create df for band ratios: band_ratios_df
     band_ratios_df = pd.DataFrame(theta_beta_ratios)
-
-    # Concatenate power_ratios_df with band_ratios_df to get full feature df
-    feature_df = pd.concat([power_ratios_df, band_ratios_df], axis=1)
-    return power_ratios_df, feature_df
+    return band_ratios_df
 
 
-def get_channel_relationships(power_ratios_df, band_ratios_df):
+def get_channel_relationships(power_ratios_df):
     ## Get channel ratio features
     # Similar algorithm as Band Ratios, but for each interval
+    binning = [0.5, 4, 7, 12, 30]
+    intervals = getIntervals(binning)
+
     C3_C4_differences = {}
+    C3_Cz_differences = {}
+    C4_Cz_differences = {}
     for i, row in power_ratios_df.iterrows():
         for interval in intervals:
-            curr_key = "C3_C4_diff_" + str(interval)
-            if curr_key not in C3_C4_differences:
-                C3_C4_differences[curr_key] = []
 
             # Calculate band ratios and append to dictionary
             power_bin_C3_key = "C3_" + str(interval)
             power_bin_C4_key = "C4_" + str(interval)
+            power_bin_Cz_key = "Cz_" + str(interval)
 
             C3_val = row[power_bin_C3_key]
             C4_val = row[power_bin_C4_key]
+            Cz_val = row[power_bin_Cz_key]
 
-            C3_C4_differences[curr_key].append(C3_val - C4_val)
+            key34 = "C3_C4_diff_" + str(interval)
+            if key34 not in C3_C4_differences:
+                C3_C4_differences[key34] = []
+            C3_C4_differences[key34].append(C3_val - C4_val)
+
+            key3z = "C3_Cz_diff_" + str(interval)
+            if key3z not in C3_Cz_differences:
+                C3_Cz_differences[key3z] = []
+            C3_Cz_differences[key3z].append(C3_val - Cz_val)
+
+            key4z = "C4_Cz_diff_" + str(interval)
+            if key4z not in C4_Cz_differences:
+                C4_Cz_differences[key4z] = []
+            C4_Cz_differences[key4z].append(C4_val - Cz_val)
 
     # Create df for band ratios: band_ratios_df
     C3_C4_differences_df = pd.DataFrame(C3_C4_differences)
-    # Concatenate power_ratios_df with band_ratios_df to get full feature df
-    feature_df = pd.concat([power_ratios_df, band_ratios_df, C3_C4_differences_df], axis=1)
+    C3_Cz_differences_df = pd.DataFrame(C3_Cz_differences)
+    C4_Cz_differences_df = pd.DataFrame(C4_Cz_differences)
+    diff_df = pd.concat([C3_C4_differences_df, C3_Cz_differences_df, C4_Cz_differences_df ], axis=1)
+    return diff_df
 
 
-def neuroDSP_alpha_instantaneous_amplitude_median(W1_feature_df, eeg_epoch_full_df):
-    alpha_range = (7, 12)
+
+def get_alpha_instantaneous_statistics(eeg_epoch_full_df):
+    # alpha_range = (7, 12)
     alpha_amps = {}
     alpha_pha = {}
     alpha_if = {}
+    power_range = [ (4,7), (7,12), (12,30)]
+    for power_i in range(len(power_range)):
+        alpha_range = power_range[power_i]
+        for i in range(0, len(eeg_epoch_full_df)):
 
-    for i in range(0, len(eeg_epoch_full_df)):
-        for ch in eeg_chans:
-            sig = eeg_epoch_full_df[ch][i][:]
-            key = ch + "_" + str(alpha_range) + "_inst_med"
+            for ch in eeg_chans:
+                sig = eeg_epoch_full_df[ch][i][:]
+                key = ch + "_" + str(alpha_range)
 
-            amp = amp_by_time(sig, eeg_fs, alpha_range) # Amplitude by time (instantaneous amplitude)
-            if key not in alpha_amps:
-                alpha_amps[key] = list()
-            alpha_amps[key].append(np.nanmedian(amp))
+                amp = amp_by_time(sig, eeg_fs, alpha_range) # Amplitude by time (instantaneous amplitude)
+                if key + "_amp_med" not in alpha_amps:
+                    alpha_amps[key+ "_amp_med"] = list()
+                    alpha_amps[key+ "_amp_avg"] = list()
+                    alpha_amps[key+ "_amp_std"] = list()
+                    alpha_amps[key+ "_amp_gradmax"] = list()
+                    alpha_amps[key+ "_amp_gradmin"] = list()
+                alpha_amps[key+ "_amp_med"].append(np.nanmedian(amp))
+                alpha_amps[key+ "_amp_avg"].append(np.nanmean(amp))
+                alpha_amps[key+ "_amp_std"].append(np.nanstd(amp))
+                alpha_amps[key+ "_amp_gradmax"].append(np.nanmax(np.gradient(amp)))
+                alpha_amps[key+ "_amp_gradmin"].append(np.nanmin(np.gradient(amp)))
 
-            pha = phase_by_time(sig, eeg_fs, alpha_range) # Phase by time (instantaneous phase)
-            if key not in alpha_pha:
-                alpha_pha[key] = list()
-            alpha_pha[key].append(np.nanmedian(pha))
+                pha = phase_by_time(sig, eeg_fs, alpha_range) # Phase by time (instantaneous phase)
+                if key + "_pha_med" not in alpha_pha:
+                    alpha_pha[key+ "_pha_med"] = list()
+                    alpha_pha[key+ "_pha_avg"] = list()
+                    alpha_pha[key+ "_pha_std"] = list()
+                    alpha_pha[key+ "_pha_gradmax"] = list()
+                    alpha_pha[key+ "_pha_gradmin"] = list()
+                alpha_pha[key+ "_pha_med"].append(np.nanmedian(pha))
+                alpha_pha[key+ "_pha_avg"].append(np.nanmean(pha))
+                alpha_pha[key+ "_pha_std"].append(np.nanstd(pha))
+                alpha_pha[key+ "_pha_gradmax"].append(np.nanmax(np.gradient(pha)))
+                alpha_pha[key+ "_pha_gradmin"].append(np.nanmin(np.gradient(pha)))
 
-            i_f = freq_by_time(sig, eeg_fs, alpha_range) # Frequency by time (instantaneous frequency)
-            if key not in alpha_if:
-                alpha_if[key] = list()
-            alpha_if[key].append(np.nanmedian(i_f))
-
+                i_f = freq_by_time(sig, eeg_fs, alpha_range) # Frequency by time (instantaneous frequency)
+                if key + "_freq_med" not in alpha_if:
+                    alpha_if[key+ "_freq_med"] = list()
+                    alpha_if[key+ "_freq_avg"] = list()
+                    alpha_if[key+ "_freq_std"] = list()
+                    alpha_if[key+ "_freq_gradmax"] = list()
+                    alpha_if[key+ "_freq_gradmin"] = list()
+                alpha_if[key+ "_freq_med"].append(np.nanmedian(i_f))
+                alpha_if[key+ "_freq_avg"].append(np.nanmean(i_f))
+                alpha_if[key+ "_freq_std"].append(np.nanstd(i_f))
+                alpha_if[key+ "_freq_gradmax"].append(np.nanmax(np.gradient(i_f)))
+                alpha_if[key+ "_freq_gradmin"].append(np.nanmin(np.gradient(i_f)))
 
     alpha_med_df = pd.DataFrame(alpha_amps)
     alpha_pha_df = pd.DataFrame(alpha_pha)
     alpha_if_df = pd.DataFrame(alpha_if)
-    feature_df = pd.concat([W1_feature_df, alpha_med_df, alpha_pha_df,alpha_if_df], axis=1)
-    return feature_df
+    insta_stat_df = pd.concat([alpha_med_df, alpha_pha_df,alpha_if_df], axis=1)
+    print(list(insta_stat_df.columns))
+    return insta_stat_df
 
 
 def FOOOF(eeg_epoch_full_df, W1_feature_df):
@@ -511,6 +555,15 @@ def FOOOF(eeg_epoch_full_df, W1_feature_df):
     feature_df.to_pickle("W2_feature_df.pkl")
 
 
+def get_all_features(eeg_epoch_full_df):
+    power_ratios_df, std_err_df, avg_df = getPowerBin(eeg_epoch_full_df)
+    band_ratios_df = getPowerBandRatios(power_ratios_df)
+    diff_df = get_channel_relationships(power_ratios_df)
+    insta_stat_df = get_alpha_instantaneous_statistics(eeg_epoch_full_df)
+    # Concatenate power_ratios_df with band_ratios_df to get full feature df
+    feature_df = pd.concat([power_ratios_df, band_ratios_df, diff_df, insta_stat_df], axis=1)
+    return feature_df
+
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
 
@@ -520,3 +573,4 @@ if __name__ == "__main__":
     eeg_epoch_full_df, W1, W2 = RF.read_epoched_data(dir)
     plot_1_trial(eeg_epoch_full_df)
     plot_PSD_avg(eeg_epoch_full_df)
+    plot_avg_PowerRatios(eeg_epoch_full_df)

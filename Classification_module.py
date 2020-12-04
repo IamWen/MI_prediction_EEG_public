@@ -6,19 +6,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn import metrics
-from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, LeavePGroupsOut, LeaveOneGroupOut, GroupShuffleSplit, cross_val_score
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
 
 from xgboost import XGBClassifier
 import lightgbm as lgb
-import tensorflow.keras as keras
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Dense, Conv2D, Dropout, MaxPooling2D, Flatten
 
 import ReadFiles as RF
 import ExtractFeatures as EF
@@ -114,6 +109,7 @@ def random_forest(X_train, X_test, y_train, y_test):
     plt.xticks(range(X_train.shape[1]), indices)
     plt.xlim([-1, X_train.shape[1]])
     plt.show()
+    return indices
 
 
 def AdaBoost(X_train, X_test, y_train, y_test, best_params={'learning_rate': 1, 'n_estimators': 90}):
@@ -188,7 +184,12 @@ def cross_validation_grid_search(X, y, model, params):
 
 
 def classify_data(X_train, X_test, y_train, y_test):
-    # random_forest(X_train, X_test, y_train, y_test)
+    ind = random_forest(X_train, X_test, y_train, y_test)
+    print(X_train.shape)
+    X_train = X_train[:,ind[:80]]
+    X_test = X_test[:,ind[:80]]
+    print(X_train.shape)
+    random_forest(X_train, X_test, y_train, y_test)
 
     # model = AdaBoostClassifier()
     # params_AdaBoost = {"n_estimators":range(30, 101, 10), "learning_rate":[1, 0.1, 0.01]}
@@ -211,16 +212,17 @@ def classify_data(X_train, X_test, y_train, y_test):
     # best_params = cross_validation_grid_search(X_train, y_train, model, params_xgBoost)
     # xgBoost(X_train, X_test, y_train, y_test, best_params)
 
-    model = lgb.LGBMClassifier()
-    params_lightGBM = {"num_leaves":[26,31,36,41], "learning_rate":[0.05,0.1],"boosting_type":['gbdt','dart','goss']}
-    best_params = cross_validation_grid_search(X_train, y_train, model, params_lightGBM)
+
+    # model = lgb.LGBMClassifier()
+    # params_lightGBM = {"num_leaves":[26,31,36,41], "learning_rate":[0.05,0.1],"boosting_type":['gbdt','dart','goss']}
+    # best_params = cross_validation_grid_search(X_train, y_train, model, params_lightGBM)
     # lightGBM(X_train, X_test, y_train, y_test)
 
 
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
     eeg_epoch_full_df, W1, W2 = RF.read_epoched_data(dir)
-    feature_df = EF.neuroDSP_alpha_instantaneous_amplitude_median(W1, eeg_epoch_full_df)
+    feature_df = EF.get_all_features(eeg_epoch_full_df)
     cleaned_feature_df = preprocessing(feature_df)
     y = feature_df["y"]
     X = feature_df.drop("y",axis=1)
