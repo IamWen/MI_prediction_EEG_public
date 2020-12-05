@@ -473,7 +473,7 @@ def FOOOF(eeg_epoch_full_df):
                 psds_only_one_type[ch].append(p)
                 freqs_only_one_type[ch].append(f)
         avg_psds_one_type = {}
-        for ch in eeg_chans:
+        for ch in all_chans:
             psds_only_one_type[ch] = np.array(psds_only_one_type[ch])
             avg_psds_one_type[ch] = np.mean(psds_only_one_type[ch], axis=0)
         psd_averages_by_type[event_type] = dict(avg_psds_one_type)
@@ -489,7 +489,6 @@ def FOOOF(eeg_epoch_full_df):
     fm_right_C4.fit()
     fm_right_C4.report()
 
-
     # Calculate central freq, alpha power, and bandwidth for each channel and each trial
     # This cell takes a few minutes to run (~8 mins on my computer). There are 3680 trials in the training data.
 
@@ -504,7 +503,7 @@ def FOOOF(eeg_epoch_full_df):
         # Print the trial number every 100 to make sure we're making progress
         if i % 100 == 0:
             print(i)
-        for ch in eeg_chans:
+        for ch in all_chans:
             # Determine the key
             CF_key = ch + "_alpha_central_freq"
             PW_key = ch + "_alpha_power"
@@ -544,10 +543,8 @@ def FOOOF(eeg_epoch_full_df):
             fooof_parameters[PW_key].append(means[1])
             fooof_parameters[BW_key].append(means[2])
 
-
     fooof_parameters_df = pd.DataFrame(fooof_parameters)
     print("% with alpha:", num_with_alpha / (num_with_alpha + num_without_alpha))
-
     return fooof_parameters_df
 
 

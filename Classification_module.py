@@ -7,13 +7,17 @@ import matplotlib.pyplot as plt
 
 from sklearn import metrics
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, GridSearchCV, LeavePGroupsOut, LeaveOneGroupOut, GroupShuffleSplit, cross_val_score
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
 
 from xgboost import XGBClassifier
 import lightgbm as lgb
+
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense, Activation
+from keras.layers.normalization import BatchNormalization
 
 import ReadFiles as RF
 import ExtractFeatures as EF
@@ -157,12 +161,84 @@ def lightGBM(X_train, X_test, y_train, y_test):
     y_pred = clf.predict(X_test)
 
     test_acc1 = metrics.accuracy_score(y_test, y_pred)
-    print("xgBoost accuracy: "+ str(test_acc1))
+    print("lightGBM accuracy: "+ str(test_acc1))
     target_names = ['class 1','class 2']
     report = metrics.classification_report(y_test, y_pred, target_names=target_names)
     print(report)
     conf_matrix = metrics.confusion_matrix(y_test, y_pred)
     print('Confusion matrix: \n'+str(conf_matrix))
+    return
+
+
+def CNN(eeg_epoch_full_df):
+    train_df = eeg_epoch_full_df
+    train_df.head()
+
+    # Stack arrays to form 2d matrices for each trial
+    X = train_df.drop(["patient_id", "start_time", "event_type"], axis=1).apply(lambda x: np.stack(x, axis=-1), axis=1)
+    X = np.array(X.values.tolist())
+    X = X.reshape(list(X.shape) + [1])
+    # Convert labels to numpy array
+    Y = train_df["event_type"].values.astype(float)
+
+    X_tot, X_test, y_tot, y_test = train_test_split(X, Y, test_size=0.2, random_state=0)
+    X_train, X_val, y_train, y_val = train_test_split(X_tot, y_tot, test_size=0.2, random_state=0)
+
+    model = Sequential()
+    model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(1000, 6, 1)))
+    model.add(BatchNormalization())
+
+    model.add(Conv2D(64, (3, 3), activation='relu'))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    model.add(Flatten())
+    model.add(Dense(256, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.5))
+
+    model.add(Dense(128, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.5))
+
+    model.add(Dense(units=1, activation='sigmoid'))
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+    model.summary()
+
+    history = model.fit(X_train, y_train,
+              epochs=10,
+              batch_size=64,
+              validation_data=(X_val, y_val))
+    test_loss, test_acc = model.evaluate(X_val, y_val, batch_size=64)
+    print(test_acc)
+    y_pred = model.predict_classes(X_test)
+    test_acc1 = metrics.accuracy_score(y_test, y_pred)
+    print("Test accuracy: "+ str(test_acc1))
+    report = metrics.classification_report(y_test, y_pred, labels=[0, 1])
+    print(report)
+    conf_matrix = metrics.confusion_matrix(y_test, y_pred)
+    print('Confusion matrix: \n'+str(conf_matrix))
+
+    print(history.history.keys())
+    # summarize history for accuracy
+    fig1,ax1 = plt.subplots()
+    ax1.plot(history.history['accuracy'])
+    ax1.plot(history.history['val_accuracy'])
+    ax1.set_title('model accuracy')
+    ax1.set_ylabel('accuracy')
+    ax1.set_xlabel('epoch')
+    ax1.legend(['train', 'test'], loc='upper left')
+
+    # summarize history for loss
+    fig2,ax2 = plt.subplots()
+    ax2.plot(history.history['loss'])
+    ax2.plot(history.history['val_loss'])
+    ax2.set_title('model loss')
+    ax2.set_ylabel('loss')
+    ax2.set_xlabel('epoch')
+    ax2.legend(['train', 'test'], loc='upper left')
     return
 
 
@@ -186,11 +262,10 @@ def cross_validation_grid_search(X, y, model, params):
 def classify_data(X_train, X_test, y_train, y_test):
     ind = random_forest(X_train, X_test, y_train, y_test)
     print(X_train.shape)
-    X_train = X_train[:,ind[:200]]
-    X_test = X_test[:,ind[:200]]
+    X_train = X_train[:,ind[:70]]
+    X_test = X_test[:,ind[:70]]
     print(X_train.shape)
-    random_forest(X_train, X_test, y_train, y_test)
-    # xgBoost(X_train, X_test, y_train, y_test)
+    # random_forest(X_train, X_test, y_train, y_test)
 
     # model = AdaBoostClassifier()
     # params_AdaBoost = {"n_estimators":range(30, 101, 10), "learning_rate":[1, 0.1, 0.01]}
@@ -213,7 +288,6 @@ def classify_data(X_train, X_test, y_train, y_test):
     # best_params = cross_validation_grid_search(X_train, y_train, model, params_xgBoost)
     # xgBoost(X_train, X_test, y_train, y_test, best_params)
 
-
     # model = lgb.LGBMClassifier()
     # params_lightGBM = {"num_leaves":[26,31,36,41], "learning_rate":[0.05,0.1],"boosting_type":['gbdt','dart','goss']}
     # best_params = cross_validation_grid_search(X_train, y_train, model, params_lightGBM)
@@ -222,15 +296,17 @@ def classify_data(X_train, X_test, y_train, y_test):
 
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
-    # eeg_epoch_full_df, _, _ = RF.read_epoched_data(dir)
+    eeg_epoch_full_df, _, _ = RF.read_epoched_data(dir)
     # feature_df = EF.get_all_features(eeg_epoch_full_df)
     # feature_df.to_pickle(dir+"/Wen_feature_df.pkl")
-    feature_df = RF.read_my_features(dir)
-    print(list(feature_df.columns))
+    # feature_df = RF.read_my_features(dir)
+    # print(list(feature_df.columns))
 
-    cleaned_feature_df = preprocessing(feature_df)
-    y = feature_df["y"]
-    X = feature_df.drop("y",axis=1)
-    X_train0, X_test0, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-    X_train, X_test = normalize_data(X_train0, X_test0)
-    classify_data(X_train, X_test, y_train, y_test)
+    # cleaned_feature_df = preprocessing(feature_df)
+    # y = feature_df["y"]
+    # X = feature_df.drop("y",axis=1)
+    # X_train0, X_test0, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    # X_train, X_test = normalize_data(X_train0, X_test0)
+    # classify_data(X_train, X_test, y_train, y_test)
+    CNN(eeg_epoch_full_df)
+    plt.show()
