@@ -43,21 +43,6 @@ def normalize_data(X_train, X_test):
     return X_train2, X_test2
 
 
-def Logistic_regression(X_train, X_test, y_train, y_test):
-    clf = LogisticRegression()
-    clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
-
-    test_acc1 = metrics.accuracy_score(y_test, y_pred)
-    print("xgBoost accuracy: "+ str(test_acc1))
-    target_names = ['class 1','class 2']
-    report = metrics.classification_report(y_test, y_pred, target_names=target_names)
-    print(report)
-    conf_matrix = metrics.confusion_matrix(y_test, y_pred)
-    print('Confusion matrix: \n'+str(conf_matrix))
-    return
-
-
 def SVM_classifier(X_train, X_test, y_train, y_test, best_params={'C': 1000, 'gamma': 0.001, 'kernel': 'rbf'}):
     best_C = best_params['C']
     best_gamma = best_params['gamma']
@@ -208,7 +193,7 @@ def CNN(eeg_epoch_full_df):
     model.summary()
 
     history = model.fit(X_train, y_train,
-              epochs=10,
+              epochs=30,
               batch_size=64,
               validation_data=(X_val, y_val))
     test_loss, test_acc = model.evaluate(X_val, y_val, batch_size=64)
@@ -243,7 +228,7 @@ def CNN(eeg_epoch_full_df):
 
 
 def cross_validation_grid_search(X, y, model, params):
-    clf = GridSearchCV(model, param_grid=params, scoring='accuracy', n_jobs=-1, return_train_score=True)
+    clf = GridSearchCV(model, param_grid=params, scoring='accuracy', cv=5, n_jobs=-1, return_train_score=True)
     clf.fit(X, y)
     best_model = clf.best_estimator_
     best_params = clf.best_params_
@@ -256,57 +241,77 @@ def cross_validation_grid_search(X, y, model, params):
         print("%0.3f (+/-%0.03f) for %r"
               % (mean, std * 2, param))
     results = clf.cv_results_
+    print(results)
     return best_params
 
 
-def classify_data(X_train, X_test, y_train, y_test):
-    ind = random_forest(X_train, X_test, y_train, y_test)
+def select_features(X_tot, y_tot):
+    X_train, X_val, y_train, y_val = train_test_split(X_tot, y_tot, test_size=0.2, random_state=0)
+    ind = random_forest(X_train, X_val, y_train, y_val)
+    print(ind[:80].shape)
+    X_train = X_train[:, ind[:80]]
+    X_val = X_val[:, ind[:80]]
+    print(X_tot.shape)
     print(X_train.shape)
-    X_train = X_train[:,ind[:70]]
-    X_test = X_test[:,ind[:70]]
-    print(X_train.shape)
-    # random_forest(X_train, X_test, y_train, y_test)
+    random_forest(X_train, X_val, y_train, y_val)
+    return ind
 
+
+def select_model(X_train, y_train):
     # model = AdaBoostClassifier()
     # params_AdaBoost = {"n_estimators":range(30, 101, 10), "learning_rate":[1, 0.1, 0.01]}
     # best_params = cross_validation_grid_search(X_train,y_train, model, params_AdaBoost)
-    # AdaBoost(X_train, X_test, y_train, y_test, best_params)
 
     # model = SVC()
-    # params_SVM = {'C': [1, 10, 100, 1000], 'gamma': [0.1, 0.01, 0.001, 0.0001], 'kernel': ['linear','rbf']}
+    # params_SVM = {'C': [1, 10, 100, 1000], 'gamma': [0.1, 0.01, 0.001, 0.0001], 'kernel': ['linear','rbf', 'sigmoid']}
     # best_params = cross_validation_grid_search(X_train,y_train, model, params_SVM)
-    # SVM_classifier(X_train, X_test, y_train, y_test, best_params)
 
-    # model = XGBClassifier()
-    # params_xgBoost = {
-    #     "eta": [0.05, 0.10, 0.15, 0.20, 0.25, 0.30],
-    #     "max_depth": [3, 4, 5, 6, 8, 10, 12, 15],
-    #     "min_child_weight": [1, 3, 5, 7],
-    #     "gamma": [0.0, 0.1, 0.2, 0.3, 0.4],
-    #     "colsample_bytree": [0.3, 0.4, 0.5, 0.7]
-    # }
-    # best_params = cross_validation_grid_search(X_train, y_train, model, params_xgBoost)
-    # xgBoost(X_train, X_test, y_train, y_test, best_params)
+    model = XGBClassifier()
+    params_xgBoost = {
+        "eta": [0.05, 0.10, 0.15, 0.20, 0.25, 0.30],
+        "max_depth": [3, 4, 5, 6, 8, 10, 12, 15],
+        "min_child_weight": [1, 3, 5, 7],
+        "gamma": [0.0, 0.1, 0.2, 0.3, 0.4],
+        "colsample_bytree": [0.3, 0.4, 0.5, 0.7]
+    }
+    best_params = cross_validation_grid_search(X_train, y_train, model, params_xgBoost)
 
     # model = lgb.LGBMClassifier()
     # params_lightGBM = {"num_leaves":[26,31,36,41], "learning_rate":[0.05,0.1],"boosting_type":['gbdt','dart','goss']}
     # best_params = cross_validation_grid_search(X_train, y_train, model, params_lightGBM)
-    # lightGBM(X_train, X_test, y_train, y_test)
+    return best_params
+
+
+def classify_data(X_train, X_test, y_train, y_test, best_params):
+
+    xgBoost(X_train, X_test, y_train, y_test, best_params)
+    lightGBM(X_train, X_test, y_train, y_test, best_params)
+    SVM_classifier(X_train, X_test, y_train, y_test, best_params)
+    AdaBoost(X_train, X_test, y_train, y_test, best_params)
+    return
 
 
 if __name__ == "__main__":
     dir = 'E:/USC/EE660_2020/data'
-    eeg_epoch_full_df, _, _ = RF.read_epoched_data(dir)
+    # eeg_epoch_full_df, _, _ = RF.read_epoched_data(dir)
     # feature_df = EF.get_all_features(eeg_epoch_full_df)
     # feature_df.to_pickle(dir+"/Wen_feature_df.pkl")
-    # feature_df = RF.read_my_features(dir)
-    # print(list(feature_df.columns))
+    feature_df = RF.read_my_features(dir)
+    print(list(feature_df.columns))
 
-    # cleaned_feature_df = preprocessing(feature_df)
-    # y = feature_df["y"]
-    # X = feature_df.drop("y",axis=1)
-    # X_train0, X_test0, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-    # X_train, X_test = normalize_data(X_train0, X_test0)
-    # classify_data(X_train, X_test, y_train, y_test)
-    CNN(eeg_epoch_full_df)
-    plt.show()
+    cleaned_feature_df = preprocessing(feature_df)
+    y = feature_df["y"]
+    X = feature_df.drop("y",axis=1)
+    X_train0, X_test0, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    X_train, X_test = normalize_data(X_train0, X_test0)
+
+    ind = select_features(X_train, y_train)
+    X_train = X_train[:, ind[:80]]
+    X_test = X_test[:, ind[:80]]
+
+    best_params = select_model(X_train, y_train)
+
+    # classify_data(X_train, X_test, y_train, y_test, best_params)
+
+    # CNN(eeg_epoch_full_df)
+    # plt.show()
